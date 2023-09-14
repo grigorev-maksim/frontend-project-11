@@ -27,19 +27,16 @@ const render = () => {
 
 const watchedState = onChange(state, render);
 
-const validateForm = (url) => new Promise((resolve, reject) => {
-  schema
-    .validate(url)
+const validateForm = (url) => {
+  schema.validate(url)
     .then(() => {
       watchedState.validationState = 'valid';
       watchedState.urls.push(url);
-      resolve();
     })
     .catch(() => {
       watchedState.validationState = 'invalid';
-      reject();
     });
-});
+};
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
