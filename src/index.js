@@ -1,9 +1,10 @@
 import './styles.scss';
 import 'bootstrap';
-import * as yup from 'yup';
-import onChange from 'on-change';
+import app from './application.js';
 
-const state = {
+app();
+
+/* const state = {
   validationState: 'valid',
   urls: [],
 };
@@ -48,4 +49,4 @@ form.addEventListener('submit', (event) => {
     });
 });
 
-export default watchedState;
+export default watchedState; */
