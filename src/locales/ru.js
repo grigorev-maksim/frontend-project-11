@@ -1,15 +1,14 @@
 export default {
   translation: {
-    keyHeader: 'RSS агрегатор',
-    keyLead: 'Начните читать RSS сегодня! Это легко, это красиво.',
-    keyBtn: 'Добавить',
-    keyExample: 'Пример: https://ru.hexlet.io/lessons.rss',
-    errTexts: {
-      required: 'Не должно быть пустым',
-      errUrl: 'Ссылка должна быть валидным URL',
-      errFeed: 'RSS уже существует',
-      invalid: 'Ресурс не содержит валидный RSS',
-      networkErr: 'Ошибка сети',
+    errors: {
+      alreadyExist: 'RSS уже существует',
+      notValid: 'Ссылка должна быть валидным URL',
+      notIncludesRSS: 'Ресурс не содержит валидный RSS',
+      'Network Error': 'Ошибка сети',
     },
+    load: 'RSS успешно загружен!',
+    feedTitle: 'Фиды',
+    postsTitle: 'Посты',
+    buttonView: 'Просмотр',
   },
 };
