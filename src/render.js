@@ -14,75 +14,70 @@ export const renderStatus = (path, value) => {
   }
 };
 
-export const renderFeedsAndPosts = (path, value) => {
-  const feedContainer = document.querySelector('.feeds');
-  const postsContrainer = document.querySelector('.posts');
-
-  if (path === 'feed') {
-    if (feedContainer.firstChild) {
-      feedContainer.removeChild(feedContainer.firstChild);
-    }
-    const feedCardDiv = document.createElement('div');
-    feedCardDiv.classList.add('card', 'border-0');
-
-    const feedBodyDiv = document.createElement('div');
-    feedBodyDiv.classList.add('card-body');
-    feedCardDiv.prepend(feedBodyDiv);
-
-    const feedHeader = document.createElement('h2');
-    feedHeader.classList.add('card-title', 'h4');
-    feedHeader.textContent = i18n.t('feedTitle');
-    feedBodyDiv.prepend(feedHeader);
-
-    const listUlEl = document.createElement('ul');
-    listUlEl.classList.add('list-group', 'border-0', 'rounded-0');
-    feedCardDiv.append(listUlEl);
-
-    value.forEach((feed) => {
-      const [feedtitle, feedDescribe] = feed;
-      const listLiclassEl = document.createElement('li');
-      listLiclassEl.classList.add('list-group-item', 'border-0', 'border-end-0');
-      listLiclassEl.innerHTML = `<h3 class='h6 m-0'>${feedtitle}</h3><p class='m-0 small text-black-50'>${feedDescribe}</p>`;
-      listUlEl.prepend(listLiclassEl);
-    });
-    feedContainer.prepend(feedCardDiv);
+export const disabledSubmitBtn = (status) => {
+  const submitBtn = document.querySelector('.rss-form button');
+  if (status === true) {
+    submitBtn.setAttribute('disabled', true);
+  } else {
+    submitBtn.removeAttribute('disabled');
   }
+};
 
-  if (path === 'posts') {
-    if (postsContrainer.firstChild) {
-      postsContrainer.removeChild(postsContrainer.firstChild);
-    }
-    const postCardDiv = document.createElement('div');
-    postCardDiv.classList.add('card', 'border-0');
-
-    const PostCardBodyDiv = document.createElement('div');
-    PostCardBodyDiv.classList.add('card-body');
-    postCardDiv.prepend(PostCardBodyDiv);
-
-    const postHeader = document.createElement('h2');
-    postHeader.classList.add('card-title', 'h4');
-    postHeader.textContent = i18n.t('postsTitle');
-    PostCardBodyDiv.prepend(postHeader);
-
-    const PostListUlEl = document.createElement('ul');
-    PostListUlEl.classList.add('list-group', 'border-0', 'rounded-0');
-    postCardDiv.append(PostListUlEl);
-
-    value.map((post, index) => {
-      const [postTitle, , postLink] = post;
-      const postLiEl = document.createElement('li');
-      postLiEl.classList.add(
-        'list-group-item',
-        'd-flex',
-        'justify-content-between',
-        'alitgn=items-start',
-        'border-0',
-        'border-end-0',
-      );
-      postLiEl.innerHTML = `<a href="${postLink}" class="fw-bold" data-id="${index}" target="_blank" rel="noopener noreferrer">${postTitle}</a>
-      <button type="button" class="btn btn-outline-primary btn-sm" data-id="${index}" data-bs-toggle="modal" data-bs-target="#modal">${i18n.t('buttonView')}</button>`;
-      return PostListUlEl.append(postLiEl);
-    });
-    postsContrainer.prepend(postCardDiv);
+const createContainer = (type) => {
+  const container = document.querySelector(`.${type}`);
+  if (container.firstChild) {
+    container.removeChild(container.firstChild);
   }
+  const cardDiv = document.createElement('div');
+  cardDiv.classList.add('card', 'border-0');
+  container.prepend(cardDiv);
+
+  const bodyDiv = document.createElement('div');
+  bodyDiv.classList.add('card-body');
+  cardDiv.prepend(bodyDiv);
+
+  const header = document.createElement('h2');
+  header.classList.add('card-title', 'h4');
+  header.textContent = i18n.t(`${type}Title`);
+  bodyDiv.prepend(header);
+
+  const ulEl = document.createElement('ul');
+  ulEl.classList.add('list-group', 'border-0', 'rounded-0');
+  cardDiv.append(ulEl);
+  return container;
+};
+
+export const renderFeeds = (value) => {
+  const feedContainer = createContainer('feeds');
+  const ulEl = feedContainer.querySelector('.list-group');
+  value.forEach((feed) => {
+    const [feedtitle, feedDescribe] = feed;
+    const liEl = document.createElement('li');
+    liEl.classList.add('list-group-item', 'border-0', 'border-end-0');
+    liEl.innerHTML = `<h3 class='h6 m-0'>${feedtitle}</h3><p class='m-0 small text-black-50'>${feedDescribe}</p>`;
+    ulEl.append(liEl);
+  });
+};
+
+export const renderPosts = (value, visitedLinks = []) => {
+  const postsContainer = createContainer('posts');
+  const ulEl = postsContainer.querySelector('.list-group');
+  value.forEach((post) => {
+    const { title, link, id } = post;
+    const liEl = document.createElement('li');
+    liEl.classList.add(
+      'list-group-item',
+      'd-flex',
+      'justify-content-between',
+      'alitgn=items-start',
+      'border-0',
+      'border-end-0',
+    );
+
+    const classes = visitedLinks.includes(String(id)) ? 'fw-normal link-secondary ' : 'fw-bold';
+
+    liEl.innerHTML = `<a href="${link}" class="${classes}" data-id="${id}" target="_blank" rel="noopener noreferrer">${title}</a>
+    <button type="button" class="btn btn-outline-primary btn-sm" data-id="${id}" data-bs-toggle="modal" data-bs-target="#exampleModal">${i18n.t('buttonView')}</button>`;
+    ulEl.append(liEl);
+  });
 };
