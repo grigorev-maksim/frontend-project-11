@@ -1,183 +1,133 @@
-import onChange from 'on-change';
 import * as yup from 'yup';
 import i18n from 'i18next';
 import axios from 'axios';
-import {
-  renderStatus,
-  disabledSubmitBtn,
-  renderFeeds,
-  renderPosts,
-} from './render.js';
+import watch from './render.js';
 import ru from './locales/ru.js';
-
-const checkValid = (url, links) => {
-  const shchema = yup
-    .string()
-    .required('notEmpty')
-    .url('notValid')
-    .notOneOf(links, 'alreadyExist');
-  return shchema.validate(url);
-};
+import uniqueId from './uniqueId.js';
 
 const fetchRSS = (url) => {
-  const parser = new DOMParser();
-  return axios.get(`https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url)}`)
-    .then((response) => parser.parseFromString(response.data.contents, 'text/xml'))
-    .then((xml) => {
-      const rss = xml.querySelector('rss');
-      if (!rss) {
-        throw new Error('notIncludesRSS');
-      }
-      const titles = Array.from(xml.querySelectorAll('title')).map((item) => item.textContent);
-      const descriptions = Array.from(xml.querySelectorAll('description')).map((item) => item.textContent);
-      const links = Array.from(xml.querySelectorAll('link')).map((item) => item.textContent);
-      const [feedLink, ...postLinks] = links;
-      const [feedName, ...postsNames] = titles;
-      const [feedDescription, ...postsDescriptions] = descriptions;
+  const newUrl = new URL('https://allorigins.hexlet.app');
+  newUrl.pathname = 'get';
+  newUrl.search = `disableCache=true&url=${url}`;
 
-      const data = {};
-      data.link = url;
-      data.feed = [feedName, feedDescription, feedLink];
-      data.posts = postsNames.map((title, index) => ({
-        title,
-        description: postsDescriptions[index],
-        link: postLinks[index],
-      }));
-      return data;
-    });
+  return axios.get(newUrl);
 };
 
-const modalTitle = document.querySelector('.modal-title');
-const modalBody = document.querySelector('.modal-body');
-const modalBtn = document.querySelector('.modal-footer > .full-article');
+const parseRSS = (contents) => {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(contents, 'text/xml');
 
-const viewPosts = (postsList, visitedLinks) => {
-  const links = document.querySelectorAll('.posts a');
-  const btns = document.querySelectorAll('.posts button');
+  const rss = xml.querySelector('rss');
+  if (!rss) {
+    throw new Error('notIncludesRSS');
+  }
 
-  const clickLink = (el) => {
-    el.classList.remove('fw-bold');
-    el.classList.add('fw-normal', 'link-secondary');
+  const titles = Array.from(xml.querySelectorAll('title')).map((item) => item.textContent);
+  const descriptions = Array.from(xml.querySelectorAll('description')).map((item) => item.textContent);
+  const links = Array.from(xml.querySelectorAll('link')).map((item) => item.textContent);
+
+  const [, ...postLinks] = links;
+  const [feedName, ...postsNames] = titles;
+  const [feedDescription, ...postsDescriptions] = descriptions;
+
+  const data = {};
+  data.feed = {
+    title: feedName,
+    description: feedDescription,
   };
 
-  links.forEach((link) => {
-    link.addEventListener('click', (e) => {
-      clickLink(link);
-      const { id } = e.target.dataset;
-      visitedLinks.push(id);
-    });
-  });
+  data.posts = postsNames.map((title, index) => ({
+    title,
+    description: postsDescriptions[index],
+    link: postLinks[index],
+  }));
 
-  btns.forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      const { id } = e.target.dataset;
-      visitedLinks.push(id);
+  return data;
+};
 
-      const currentLink = document.querySelector(`a[data-id="${id}"]`);
-      clickLink(currentLink);
-      const [currentPost] = postsList.filter((post) => post.id === Number(id));
-      const { title, description, link } = currentPost;
-      modalBtn.setAttribute('href', link);
-      modalTitle.textContent = title;
-      modalBody.textContent = description;
-    });
-  });
+const updatePosts = (state) => {
+  const { feeds, posts } = state;
+  const promises = feeds.map(({ link }) => fetchRSS(link)
+    .then(({ data }) => {
+      const updateData = parseRSS(data.contents);
+      const currentTitles = posts.map((post) => post.title);
+      const update = updateData.posts
+        .filter((post) => !currentTitles.includes(post.title))
+        .map((post) => ({ ...post, id: uniqueId() }));
+      posts.unshift(...update);
+    }));
+
+  Promise.allSettled(promises).finally(() => setTimeout(updatePosts, 5000, state));
 };
 
 const app = () => {
   const stateApp = {
     feeds: [],
     posts: [],
-    links: [],
-    visitedLinks: [],
-    errors: '',
+    visitedLinks: new Set(),
+    error: null,
     loading: false,
   };
+
+  const elements = {
+    statusBar: document.querySelector('.feedback'),
+    form: document.querySelector('.rss-form'),
+    formSubmitBtn: document.querySelector('.rss-form button'),
+    feeds: document.querySelector('.feeds'),
+    posts: document.querySelector('.posts'),
+    modal: {
+      title: document.querySelector('.modal-title'),
+      body: document.querySelector('.modal-body'),
+      btn: document.querySelector('.modal-footer > .full-article'),
+    },
+  };
+
+  const schema = (links) => yup
+    .string()
+    .required('notEmpty')
+    .url('notValid')
+    .notOneOf(links, 'alreadyExist');
 
   i18n.init({
     lng: 'ru',
     resources: {
       ru,
     },
-  });
+  }).then((translate) => {
+    const watchedState = watch(elements, stateApp, translate);
 
-  const watchedState = onChange(stateApp, (path, value) => {
-    switch (path) {
-      case 'errors':
-        renderStatus(path, value);
-        break;
-      case 'loading':
-        disabledSubmitBtn(value);
-        break;
-      case 'feeds':
-        renderStatus(path, value);
-        renderFeeds(value);
-        break;
-      case 'posts':
-        renderPosts(value, stateApp.visitedLinks);
-        viewPosts(stateApp.posts, stateApp.visitedLinks);
-        break;
-      case 'links':
-        break;
-      default:
-        throw new Error(`${i18n.t('unknowError')}: ${value}`);
-    }
-  });
+    elements.form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const url = formData.get('url');
+      watchedState.loading = true;
 
-  let uniqueID = 1;
+      const linksList = stateApp.feeds.map((feed) => feed.link);
+      schema(linksList).validate(url)
+        .then(() => fetchRSS(url))
+        .then(({ data }) => {
+          const { feed, posts } = parseRSS(data.contents);
+          const postsWithId = posts.map((post) => ({ ...post, id: uniqueId() }));
 
-  const updatePosts = (url) => {
-    setTimeout(() => {
-      fetchRSS(url)
-        .then((data) => {
-          const currentTitles = stateApp.posts.map((post) => post.title);
-          const update = data.posts
-            .filter((post) => !currentTitles.includes(post.title))
-            .map((post) => {
-              uniqueID += 1;
-              return { ...post, id: uniqueID };
-            });
-          watchedState.posts.unshift(...update);
+          watchedState.error = null;
+          watchedState.feeds.unshift({ ...feed, link: url });
+          watchedState.posts.unshift(...postsWithId);
+          watchedState.loading = false;
         })
         .catch((error) => {
-          console.log(error);
+          watchedState.loading = false;
+          watchedState.error = error.message;
         });
-      updatePosts(url);
-    }, 5 * 1000);
-  };
+    });
 
-  const formEl = document.querySelector('.rss-form');
-  formEl.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const promise = Promise.resolve(e);
-    promise
-      .then((event) => {
-        watchedState.loading = true;
-        const formData = new FormData(event.target);
-        return formData.get('url');
-      })
-      .then((url) => checkValid(url, watchedState.links))
-      .then((url) => fetchRSS(url))
-      .then((data) => {
-        const { feed, posts, link } = data;
-        const postsWithID = posts.map((post) => {
-          uniqueID += 1;
-          return { ...post, id: uniqueID };
-        });
+    elements.posts.addEventListener('click', ({ target }) => {
+      if (target.tagName === 'A' || target.tagName === 'BUTTON') {
+        const { id } = target.dataset;
+        watchedState.visitedLinks.add(id);
+      }
+    });
 
-        watchedState.errors = '';
-        watchedState.feeds.unshift(feed);
-        watchedState.posts.unshift(...postsWithID);
-        watchedState.links.push(link);
-        watchedState.loading = false;
-
-        updatePosts(link, watchedState);
-        formEl.reset();
-      })
-      .catch((error) => {
-        watchedState.loading = false;
-        watchedState.errors = error.message;
-      });
+    updatePosts(watchedState);
   });
 };
 
